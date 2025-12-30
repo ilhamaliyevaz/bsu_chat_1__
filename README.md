@@ -17,32 +17,47 @@ BSU Chat - Bakı Dövlət Universiteti tələbələri üçün real-time mesajla�
 - ✅ **16 Fakültə Chat Otaqları**
   - Real-time mesajlaşma (2 saniyə refresh)
   - Profil şəkli dəstəyi
-  - Bakı saat zonası ilə timestamp
+  - **Bakı real vaxt zonası (UTC+4)** ilə timestamp
   - 72 saatdan köhnə mesajların avtomatik silinməsi
+  - **Mesaj üzərinə context menu** (əngəllə, şəxsi chat, şikayət et)
+  - **Scroll problemi həll edildi** - mesajlar yerində qalır
 
 - ✅ **Şəxsi Mesajlaşma**
+  - **Şəxsi mesajlar bölməsi** dashboard-da
+  - Söhbətlər siyahısı (conversations list)
   - İstifadəçilər arası 1-on-1 chat
-  - Mesaj göndərmə və qəbul etmə
-  - Profil məlumatları görüntüləmə
+  - Son mesaj vaxtı ilə sıralama
+  - Context menu ilə sürətli keçid
+
+- ✅ **Profil Düzənləmə**
+  - **Profil səhifəsi** (ad, soyad, fakültə, kurs)
+  - **Profil şəkli yükləmə** funksiyası
+  - **Əngəllənən hesablar** bölməsi
+  - **Əngəli açma** funksiyası
 
 - ✅ **Bloklama və Şikayət Sistemi**
+  - **Mesaj üzərinə sağ klik** context menu
+  - Sürətli əngəlləmə və şikayət
   - İstifadəçi bloklama funksiyası
   - Şikayət göndərmə sistemi
   - 16+ şikayət = təhlükəli hesab statusu
 
 - ✅ **Admin Paneli**
+  - **Ana səhifədə Admin düyməsi**
   - Super Admin hesabı (ursamajor / ursa618)
+  - **Bütün istifadəçilər** bölməsi
+  - **Aktiv/Deaktiv** funksiyası (alt adminlər də istifadə edə bilər)
   - Alt admin hesabları yaratma və silmə
   - Təhlükəli hesabları görüntüləmə və ban etmə
   - Qadağan olunmuş sözlər filtr sistemi
   - Sayt qaydalarını düzənləmə
   - Günün mövzusunu yeniləmə
 
-- ✅ **Təhlükəsizlik**
-  - Password əsaslı authentication
-  - Banned user əngəlləməsi
-  - Qadağan olunmuş sözlərin avtomatik filtrləməsi
-  - Session idarəetməsi
+- ✅ **İstifadəçi Interfeysi**
+  - **Header-də Profil və Qaydalar** iconları
+  - **Qaydalar səhifəsi** - sayt qaydalarını görüntüləmə
+  - Müasir və sadə dizayn
+  - Responsive (mobil uyğun)
 
 ## 🌐 URL-lər
 
@@ -187,12 +202,20 @@ Local development üçün `.dev.vars` faylı:
 - `POST /api/auth/register` - Qeydiyyat
 - `POST /api/auth/login` - Giriş
 
+### Profile
+- `GET /api/profile/:userId` - Profil məlumatları
+- `POST /api/profile/update` - Profil yeniləmə (ad, fakültə, kurs)
+- `POST /api/profile/update-image` - Profil şəkli yüklə
+- `GET /api/profile/:userId/blocked` - Əngəllənmiş istifadəçilər
+- `POST /api/unblock` - Əngəli aç
+
 ### Faculty Chat
 - `GET /api/faculty/:faculty/messages` - Mesajları gətir
 - `POST /api/faculty/:faculty/send` - Mesaj göndər
 - `GET /api/faculty/:faculty/users` - İstifadəçiləri gətir
 
 ### Private Chat
+- `GET /api/private/:userId/conversations` - Şəxsi söhbətlər siyahısı
 - `GET /api/private/:userId1/:userId2/messages` - Şəxsi mesajlar
 - `POST /api/private/send` - Şəxsi mesaj göndər
 
@@ -202,6 +225,8 @@ Local development üçün `.dev.vars` faylı:
 
 ### Admin
 - `POST /api/admin/login` - Admin girişi
+- `GET /api/admin/all-users` - Bütün istifadəçilər (yeni)
+- `POST /api/admin/toggle-user-status` - Aktiv/Deaktiv et (yeni)
 - `GET /api/admin/dangerous-accounts` - Təhlükəli hesablar
 - `POST /api/admin/ban-user` - İstifadəçi ban et
 - `GET /api/admin/banned-words` - Qadağan sözlər
