@@ -235,8 +235,8 @@ app.get('/api/faculty/:faculty/messages', async (c) => {
     const faculty = decodeURIComponent(c.req.param('faculty')) as Faculty
     const { env } = c
 
-    // 72 saatdan köhnə mesajları sil
-    const cutoffTime = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString()
+    // 24 saatdan köhnə mesajları sil
+    const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     await env.DB.prepare(
       'DELETE FROM faculty_messages WHERE created_at < ?'
     ).bind(cutoffTime).run()
@@ -346,8 +346,8 @@ app.get('/api/private/:userId1/:userId2/messages', async (c) => {
       return c.json({ blocked: true, messages: [] })
     }
 
-    // 72 saatdan köhnə mesajları sil
-    const cutoffTime = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString()
+    // 24 saatdan köhnə mesajları sil
+    const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
     await env.DB.prepare(
       'DELETE FROM private_messages WHERE created_at < ?'
     ).bind(cutoffTime).run()
@@ -526,8 +526,13 @@ app.get('/api/admin/all-users', async (c) => {
       FROM users
       ORDER BY created_at DESC
     `).all()
+    
+    const totalCount = users.results?.length || 0
 
-    return c.json({ users: users.results || [] })
+    return c.json({ 
+      users: users.results || [],
+      totalCount 
+    })
   } catch (error) {
     return c.json({ error: 'Xəta baş verdi' }, 500)
   }

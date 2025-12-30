@@ -29,9 +29,16 @@ const API_BASE = window.location.origin + '/api';
 
 // Helper Functions
 function formatTime(dateString) {
+  // Bakı UTC+4 saat zonasında göstər
   const date = new Date(dateString);
-  const hours = date.getHours().toString().padStart(2, '0');
-  const minutes = date.getMinutes().toString().padStart(2, '0');
+  // UTC+4 offset əlavə et
+  const bakuOffset = 4 * 60; // 4 saat dəqiqə ilə
+  const localOffset = date.getTimezoneOffset(); // local timezone offset
+  const totalOffset = bakuOffset + localOffset;
+  const bakuTime = new Date(date.getTime() + totalOffset * 60000);
+  
+  const hours = bakuTime.getHours().toString().padStart(2, '0');
+  const minutes = bakuTime.getMinutes().toString().padStart(2, '0');
   return `${hours}:${minutes}`;
 }
 
@@ -1525,11 +1532,12 @@ async function showRules() {
 async function showAllUsers() {
   try {
     const response = await axios.get(`${API_BASE}/admin/all-users`);
+    const totalCount = response.data.totalCount || 0;
     
     document.getElementById('adminWorkArea').innerHTML = `
       <div style="background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);">
         <h2 style="margin-bottom: 20px; color: #2d3748;">
-          <i class="fas fa-users"></i> Bütün İstifadəçilər
+          <i class="fas fa-users"></i> Bütün İstifadəçilər (${totalCount})
         </h2>
         
         ${response.data.users.length === 0 ? 
