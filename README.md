@@ -17,10 +17,10 @@ BSU Chat - Bakı Dövlət Universiteti tələbələri üçün real-time mesajla�
 - ✅ **16 Fakültə Chat Otaqları**
   - Real-time mesajlaşma (2 saniyə refresh)
   - Profil şəkli dəstəyi
-  - **Bakı real vaxt zonası (UTC+4)** ilə timestamp
-  - 72 saatdan köhnə mesajların avtomatik silinməsi
+  - **✅ Bakı real vaxt zonası (UTC+4)** - DD.MM.YYYY HH:MM formatı
+  - **✅ 24 saatdan köhnə mesajların** avtomatik silinməsi
   - **Mesaj üzərinə context menu** (əngəllə, şəxsi chat, şikayət et)
-  - **Scroll problemi həll edildi** - mesajlar yerində qalır
+  - **✅ Chat scroll problemi həll edildi** - mesaj yazma bölməsi sabit qalır
 
 - ✅ **Şəxsi Mesajlaşma**
   - **Şəxsi mesajlar bölməsi** dashboard-da
@@ -36,6 +36,7 @@ BSU Chat - Bakı Dövlət Universiteti tələbələri üçün real-time mesajla�
   - **Əngəli açma** funksiyası
 
 - ✅ **Bloklama və Şikayət Sistemi**
+  - **✅ Qarşılıqlı bloklama** - bloklanan bloklayandan mesaj yaza bilməz
   - **Mesaj üzərinə sağ klik** context menu
   - Sürətli əngəlləmə və şikayət
   - İstifadəçi bloklama funksiyası
@@ -45,7 +46,7 @@ BSU Chat - Bakı Dövlət Universiteti tələbələri üçün real-time mesajla�
 - ✅ **Admin Paneli**
   - **Ana səhifədə Admin düyməsi**
   - Super Admin hesabı (ursamajor / ursa618)
-  - **Bütün istifadəçilər** bölməsi
+  - **✅ Bütün istifadəçilər (say)** - mötərizədə istifadəçi sayı
   - **Aktiv/Deaktiv** funksiyası (alt adminlər də istifadə edə bilər)
   - Alt admin hesabları yaratma və silmə
   - Təhlükəli hesabları görüntüləmə və ban etmə
@@ -177,9 +178,10 @@ curl http://localhost:3000
 - Session-əsaslı authentication
 - Banned user əngəlləməsi
 - Bloklanmış istifadəçilərlə mesajlaşma əngəli
+- **✅ Qarşılıqlı bloklama** - bloklanan bloklayandan mesaj yaza bilməz
 - Avtomatik söz filtrləməsi
 - 16+ şikayət = təhlükəli hesab
-- 72 saatdan köhnə mesajların avtomatik silinməsi
+- **✅ 24 saatdan köhnə mesajların** avtomatik silinməsi
 
 ## ⚙️ Konfiqurasiya
 
@@ -266,6 +268,29 @@ Local development üçün `.dev.vars` faylı:
 ## 🤝 Töhfə
 
 Bu layihə Bakı Dövlət Universiteti tələbələri üçün yaradılıb. İstənilən təklif və ya problem üçün GitHub issues istifadə edin.
+
+## 📝 Changelog
+
+### v2.0.0 - 2025-12-30 (2-ci Dalğa Düzəlişləri)
+
+✅ **Həll Edilmiş Problemlər:**
+
+1. **Qarşılıqlı Bloklama** - Əgər A B-ni bloklayıbsa, B A-ya mesaj yaza bilməz
+2. **Bakı Real Vaxt** - Tarix və saat DD.MM.YYYY HH:MM formatında Bakı UTC+4 ilə
+3. **Chat Scroll Problemi** - Mesaj yazma bölməsi sabit qalır, mesajlar normal scroll olunur
+4. **Admin Panel Say** - Bütün istifadəçilər bölməsində (N) count göstərilir
+5. **24 Saat Silinmə** - Mesajlar 72 saat əvəzinə 24 saatdan sonra silinir
+6. **Mobil Optimizasiya** - CSS responsive dizayn və mobile-first yanaşma
+
+### v1.0.0 - 2025-12-29 (İlk Buraxılış)
+
+- 16 fakültə chat otaqları
+- Şəxsi mesajlaşma
+- Admin paneli (super admin və alt adminlər)
+- Profil düzənləmə
+- Bloklama və şikayət sistemi
+- Təhlükəli hesablar idarəetməsi
+- Filtr sistemi
 
 ## 📄 Lisenziya
 
