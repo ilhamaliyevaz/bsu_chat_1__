@@ -12,7 +12,21 @@ app.use('/static/*', serveStatic({ root: './public' }))
 
 // Helper funksiyalar
 function getBakuTime() {
-  return new Date(new Date().getTime() + (4 * 60 * 60 * 1000)).toISOString()
+  // Bakı UTC+4 saat zonası
+  const now = new Date()
+  const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000)
+  const bakuTime = new Date(utcTime + (4 * 60 * 60 * 1000))
+  return bakuTime.toISOString()
+}
+
+function formatBakuTime(dateString: string) {
+  const date = new Date(dateString)
+  const day = date.getDate().toString().padStart(2, '0')
+  const month = (date.getMonth() + 1).toString().padStart(2, '0')
+  const year = date.getFullYear()
+  const hours = date.getHours().toString().padStart(2, '0')
+  const minutes = date.getMinutes().toString().padStart(2, '0')
+  return `${day}.${month}.${year} ${hours}:${minutes}`
 }
 
 function filterBannedWords(text: string, bannedWords: string[]): string {
@@ -161,6 +175,58 @@ app.post('/api/profile/update-image', async (c) => {
   }
 })
 
+// Profil məlumatlarını yeniləmək
+app.post('/api/profile/update', async (c) => {
+  try {
+    const { userId, full_name, faculty, course } = await c.req.json()
+    const { env } = c
+
+    await env.DB.prepare(
+      'UPDATE users SET full_name = ?, faculty = ?, course = ? WHERE id = ?'
+    ).bind(full_name, faculty, course, userId).run()
+
+    return c.json({ success: true })
+  } catch (error) {
+    return c.json({ error: 'Xəta baş verdi' }, 500)
+  }
+})
+
+// Əngəllənmiş istifadəçiləri gətir
+app.get('/api/profile/:userId/blocked', async (c) => {
+  try {
+    const userId = c.req.param('userId')
+    const { env } = c
+
+    const blocked = await env.DB.prepare(`
+      SELECT u.id, u.full_name, u.profile_image, u.faculty
+      FROM blocks b
+      JOIN users u ON b.blocked_id = u.id
+      WHERE b.blocker_id = ?
+      ORDER BY b.created_at DESC
+    `).bind(userId).all()
+
+    return c.json({ blocked: blocked.results || [] })
+  } catch (error) {
+    return c.json({ error: 'Xəta baş verdi' }, 500)
+  }
+})
+
+// Əngəli aç
+app.post('/api/unblock', async (c) => {
+  try {
+    const { blockerId, blockedId } = await c.req.json()
+    const { env } = c
+
+    await env.DB.prepare(
+      'DELETE FROM blocks WHERE blocker_id = ? AND blocked_id = ?'
+    ).bind(blockerId, blockedId).run()
+
+    return c.json({ success: true })
+  } catch (error) {
+    return c.json({ error: 'Xəta baş verdi' }, 500)
+  }
+})
+
 // ============= FAKULTƏ CHAT API =============
 
 // Fakültə mesajlarını əldə et
@@ -229,6 +295,40 @@ app.post('/api/faculty/:faculty/send', async (c) => {
 })
 
 // ============= ŞƏXSI CHAT API =============
+
+// Şəxsi söhbətləri gətir (conversation list)
+app.get('/api/private/:userId/conversations', async (c) => {
+  try {
+    const userId = c.req.param('userId')
+    const { env } = c
+
+    const conversations = await env.DB.prepare(`
+      SELECT DISTINCT
+        CASE 
+          WHEN pm.sender_id = ? THEN pm.receiver_id 
+          ELSE pm.sender_id 
+        END as other_user_id,
+        u.full_name,
+        u.profile_image,
+        u.faculty,
+        MAX(pm.created_at) as last_message_time
+      FROM private_messages pm
+      JOIN users u ON (
+        CASE 
+          WHEN pm.sender_id = ? THEN pm.receiver_id 
+          ELSE pm.sender_id 
+        END = u.id
+      )
+      WHERE pm.sender_id = ? OR pm.receiver_id = ?
+      GROUP BY other_user_id
+      ORDER BY last_message_time DESC
+    `).bind(userId, userId, userId, userId).all()
+
+    return c.json({ conversations: conversations.results || [] })
+  } catch (error) {
+    return c.json({ error: 'Xəta baş verdi' }, 500)
+  }
+})
 
 // Şəxsi mesajları əldə et
 app.get('/api/private/:userId1/:userId2/messages', async (c) => {
@@ -409,6 +509,39 @@ app.post('/api/admin/ban-user', async (c) => {
     await env.DB.prepare(
       'UPDATE users SET is_banned = 1 WHERE id = ?'
     ).bind(userId).run()
+
+    return c.json({ success: true })
+  } catch (error) {
+    return c.json({ error: 'Xəta baş verdi' }, 500)
+  }
+})
+
+// Bütün istifadəçiləri gətir (admin üçün)
+app.get('/api/admin/all-users', async (c) => {
+  try {
+    const { env } = c
+
+    const users = await env.DB.prepare(`
+      SELECT id, full_name, email, phone, faculty, course, is_banned, created_at
+      FROM users
+      ORDER BY created_at DESC
+    `).all()
+
+    return c.json({ users: users.results || [] })
+  } catch (error) {
+    return c.json({ error: 'Xəta baş verdi' }, 500)
+  }
+})
+
+// İstifadəçini deaktiv/aktiv et
+app.post('/api/admin/toggle-user-status', async (c) => {
+  try {
+    const { userId, status } = await c.req.json()
+    const { env } = c
+
+    await env.DB.prepare(
+      'UPDATE users SET is_banned = ? WHERE id = ?'
+    ).bind(status, userId).run()
 
     return c.json({ success: true })
   } catch (error) {

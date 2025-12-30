@@ -86,6 +86,10 @@ function showLoginPage() {
           <button type="button" class="btn btn-secondary" onclick="showRegisterPage()">
             Hesabın yoxdur? Qeydiyyatdan keç
           </button>
+          
+          <button type="button" class="btn btn-secondary" onclick="showAdminLoginPage()" style="background: linear-gradient(135deg, #fc466b 0%, #3f5efb 100%); color: white; margin-top: 10px;">
+            <i class="fas fa-shield-alt"></i> Admin Paneli
+          </button>
         </form>
       </div>
     </div>
@@ -330,9 +334,25 @@ function showDashboard() {
               ${currentUser.full_name} · ${currentUser.faculty} · ${currentUser.course}-ci kurs
             </div>
           </div>
-          <button class="logout-btn" onclick="handleLogout()">
-            <i class="fas fa-sign-out-alt"></i> Çıxış
-          </button>
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <button class="action-btn" onclick="showProfile()" title="Profil">
+              <i class="fas fa-user"></i>
+            </button>
+            <button class="action-btn" onclick="showRules()" title="Qaydalar">
+              <i class="fas fa-gavel"></i>
+            </button>
+            <button class="logout-btn" onclick="handleLogout()">
+              <i class="fas fa-sign-out-alt"></i> Çıxış
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <div style="padding: 20px; display: flex; gap: 20px; flex-wrap: wrap; justify-content: center;">
+        <div class="faculty-card" onclick="showPrivateMessages()" style="border-left: 5px solid #f093fb; max-width: 280px;">
+          <i class="fas fa-comments"></i>
+          <h3>Şəxsi Mesajlar</h3>
+          <p>Şəxsi söhbətlərinizi görüntüləyin</p>
         </div>
       </div>
       
@@ -341,13 +361,6 @@ function showDashboard() {
   `;
   
   renderFaculties();
-  
-  // Auto-refresh dashboard every 30 seconds
-  setInterval(() => {
-    if (!currentFaculty && !isPrivateChat) {
-      // Only refresh if we're on dashboard
-    }
-  }, 30000);
 }
 
 function renderFaculties() {
@@ -451,14 +464,26 @@ async function loadFacultyMessages() {
 
 function renderMessages(messages) {
   const container = document.getElementById('messagesContainer');
-  const scrollAtBottom = container.scrollHeight - container.scrollTop === container.clientHeight;
+  
+  // Store current scroll position
+  const wasAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 100;
+  
+  // Store existing message IDs to prevent flicker
+  const existingMessages = Array.from(container.children).map(el => el.dataset.messageId);
+  const newMessageIds = messages.map(m => m.id.toString());
+  
+  // Only update if there are new messages or if forced
+  if (JSON.stringify(existingMessages) === JSON.stringify(newMessageIds)) {
+    return; // No changes
+  }
   
   container.innerHTML = messages.map(msg => {
     const isOwn = msg.user_id === currentUser.id;
     const initials = getInitials(msg.full_name);
+    const messageId = msg.id;
     
     return `
-      <div class="message ${isOwn ? 'own' : ''}">
+      <div class="message ${isOwn ? 'own' : ''}" data-message-id="${messageId}">
         <div class="message-avatar">
           ${msg.profile_image ? 
             `<img src="${msg.profile_image}" alt="${msg.full_name}">` : 
@@ -467,7 +492,9 @@ function renderMessages(messages) {
         </div>
         <div class="message-content">
           ${!isOwn ? `<div class="message-sender">${msg.full_name}</div>` : ''}
-          <div class="message-bubble">${escapeHtml(msg.message)}</div>
+          <div class="message-bubble" onclick="showMessageContextMenu(event, ${msg.user_id}, '${msg.full_name}', '${msg.profile_image || ''}')" data-user-id="${msg.user_id}">
+            ${escapeHtml(msg.message)}
+          </div>
           <div class="message-time">${formatTime(msg.created_at)}</div>
         </div>
       </div>
@@ -475,8 +502,100 @@ function renderMessages(messages) {
   }).join('');
   
   // Auto-scroll only if was at bottom
-  if (scrollAtBottom || messages.length > 0) {
-    container.scrollTop = container.scrollHeight;
+  if (wasAtBottom) {
+    setTimeout(() => {
+      container.scrollTop = container.scrollHeight;
+    }, 50);
+  }
+}
+
+// Context Menu funksiyası
+function showMessageContextMenu(event, userId, userName, userImage) {
+  event.stopPropagation();
+  
+  // Özünün mesajına context menu açılmasın
+  if (userId === currentUser.id) return;
+  
+  // Əvvəlki context menu-nu sil
+  document.querySelectorAll('.context-menu').forEach(m => m.remove());
+  
+  const menu = document.createElement('div');
+  menu.className = 'context-menu active';
+  menu.style.position = 'fixed';
+  menu.style.left = event.pageX + 'px';
+  menu.style.top = event.pageY + 'px';
+  
+  menu.innerHTML = `
+    <div class="context-menu-item" onclick="openPrivateChatFromMenu(${userId}, '${userName}', '${userImage}')">
+      <i class="fas fa-comment"></i>
+      <span>Şəxsi mesaj</span>
+    </div>
+    <div class="context-menu-item danger" onclick="blockAndReportUser(${userId}, '${userName}')">
+      <i class="fas fa-ban"></i>
+      <span>Əngəllə</span>
+    </div>
+    <div class="context-menu-item danger" onclick="reportUserOnly(${userId}, '${userName}')">
+      <i class="fas fa-flag"></i>
+      <span>Şikayət et</span>
+    </div>
+  `;
+  
+  document.body.appendChild(menu);
+  
+  // Click outside to close
+  setTimeout(() => {
+    document.addEventListener('click', function closeMenu() {
+      menu.remove();
+      document.removeEventListener('click', closeMenu);
+    });
+  }, 100);
+}
+
+function openPrivateChatFromMenu(userId, userName, userImage) {
+  document.querySelectorAll('.context-menu').forEach(m => m.remove());
+  openPrivateChat(userId, userName, userImage);
+}
+
+async function blockAndReportUser(userId, userName) {
+  document.querySelectorAll('.context-menu').forEach(m => m.remove());
+  
+  if (confirm(`${userName} istifadəçisini əngəlləmək və şikayət etmək istədiyinizdən əminsiniz?`)) {
+    try {
+      await axios.post(`${API_BASE}/block`, {
+        blockerId: currentUser.id,
+        blockedId: userId
+      });
+      
+      await axios.post(`${API_BASE}/report`, {
+        reporterId: currentUser.id,
+        reportedId: userId,
+        reason: 'İstifadəçi əngəlləndi və şikayət edildi'
+      });
+      
+      showSuccess('İstifadəçi əngəlləndi və şikayət edildi');
+    } catch (error) {
+      showError('Xəta baş verdi');
+    }
+  }
+}
+
+async function reportUserOnly(userId, userName) {
+  document.querySelectorAll('.context-menu').forEach(m => m.remove());
+  
+  const reason = prompt(`${userName} istifadəçisinə şikayət səbəbini yazın (və ya boş buraxın):`);
+  
+  if (reason !== null) {
+    try {
+      await axios.post(`${API_BASE}/report`, {
+        reporterId: currentUser.id,
+        reportedId: userId,
+        reason: reason || 'Şikayət edilib'
+      });
+      
+      showSuccess('Şikayət göndərildi');
+    } catch (error) {
+      showError('Şikayət göndərilmədi');
+    }
   }
 }
 
@@ -773,6 +892,12 @@ function showAdminDashboard(admin) {
       
       <div class="admin-content">
         <div class="admin-grid">
+          <div class="admin-card-box" onclick="showAllUsers()" style="border-left: 5px solid #667eea;">
+            <i class="fas fa-users" style="color: #667eea;"></i>
+            <h3>Bütün İstifadəçilər</h3>
+            <p>İstifadəçi idarəetməsi (Aktiv/Deaktiv)</p>
+          </div>
+          
           <div class="admin-card-box" onclick="showDangerousAccounts()" style="border-left: 5px solid #fc466b;">
             <i class="fas fa-exclamation-triangle" style="color: #fc466b;"></i>
             <h3>Təhlükəli Hesablar</h3>
@@ -1128,6 +1253,348 @@ window.onload = function() {
   }
 }
 
+// ============= PROFİL SƏHİFƏSİ =============
+async function showProfile() {
+  try {
+    const blockedResponse = await axios.get(`${API_BASE}/profile/${currentUser.id}/blocked`);
+    
+    document.getElementById('app').innerHTML = `
+      <div class="dashboard">
+        <div class="dashboard-header">
+          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+              <button class="back-btn" onclick="showDashboard()">
+                <i class="fas fa-arrow-left"></i>
+              </button>
+              <h1><i class="fas fa-user"></i> Profil</h1>
+            </div>
+          </div>
+        </div>
+        
+        <div style="padding: 30px; max-width: 800px; margin: 0 auto;">
+          <div style="background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); margin-bottom: 20px;">
+            <h2 style="margin-bottom: 20px; color: #2d3748;">
+              <i class="fas fa-edit"></i> Profil Məlumatları
+            </h2>
+            
+            <div style="text-align: center; margin-bottom: 30px;">
+              <div style="width: 120px; height: 120px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; color: white; font-size: 48px; font-weight: bold; overflow: hidden;">
+                ${currentUser.profile_image ? 
+                  `<img src="${currentUser.profile_image}" style="width: 100%; height: 100%; object-fit: cover;">` : 
+                  getInitials(currentUser.full_name)
+                }
+              </div>
+              <label class="btn btn-secondary" style="width: auto; padding: 10px 20px; display: inline-block; cursor: pointer;">
+                <i class="fas fa-camera"></i> Şəkil Yüklə
+                <input type="file" id="profileImageInput" accept="image/*" style="display: none;" onchange="uploadProfileImage()">
+              </label>
+            </div>
+            
+            <form id="profileForm">
+              <div class="form-group">
+                <label>Ad Soyad</label>
+                <input type="text" id="profileFullName" value="${currentUser.full_name}" required>
+              </div>
+              
+              <div class="form-group">
+                <label>Fakültə</label>
+                <select id="profileFaculty" required>
+                  ${FACULTIES.map(f => `
+                    <option value="${f}" ${f === currentUser.faculty ? 'selected' : ''}>${f}</option>
+                  `).join('')}
+                </select>
+              </div>
+              
+              <div class="form-group">
+                <label>Kurs</label>
+                <select id="profileCourse" required>
+                  <option value="1" ${currentUser.course === 1 ? 'selected' : ''}>1-ci kurs</option>
+                  <option value="2" ${currentUser.course === 2 ? 'selected' : ''}>2-ci kurs</option>
+                  <option value="3" ${currentUser.course === 3 ? 'selected' : ''}>3-cü kurs</option>
+                  <option value="4" ${currentUser.course === 4 ? 'selected' : ''}>4-cü kurs</option>
+                </select>
+              </div>
+              
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Yadda Saxla
+              </button>
+            </form>
+          </div>
+          
+          <div style="background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);">
+            <h2 style="margin-bottom: 20px; color: #2d3748;">
+              <i class="fas fa-ban"></i> Əngəllənən Hesablar
+            </h2>
+            
+            ${blockedResponse.data.blocked.length === 0 ? 
+              '<p style="color: #718096;">Əngəllənmiş istifadəçi yoxdur</p>' :
+              `<div class="users-list">
+                ${blockedResponse.data.blocked.map(user => {
+                  const initials = getInitials(user.full_name);
+                  return `
+                    <div class="user-item" style="justify-content: space-between;">
+                      <div style="display: flex; align-items: center; gap: 12px;">
+                        <div class="user-avatar">
+                          ${user.profile_image ? 
+                            `<img src="${user.profile_image}" alt="${user.full_name}">` : 
+                            initials
+                          }
+                        </div>
+                        <div>
+                          <div style="font-weight: 600;">${user.full_name}</div>
+                          <div style="font-size: 12px; color: #718096;">${user.faculty}</div>
+                        </div>
+                      </div>
+                      <button onclick="unblockUser(${user.id}, '${user.full_name}')" 
+                              style="background: #48bb78; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer;">
+                        <i class="fas fa-unlock"></i> Əngəli Aç
+                      </button>
+                    </div>
+                  `;
+                }).join('')}
+              </div>`
+            }
+          </div>
+        </div>
+      </div>
+    `;
+    
+    document.getElementById('profileForm').addEventListener('submit', updateProfile);
+  } catch (error) {
+    showError('Profil yüklənmədi');
+  }
+}
+
+async function uploadProfileImage() {
+  const input = document.getElementById('profileImageInput');
+  const file = input.files[0];
+  
+  if (!file) return;
+  
+  // Simple base64 conversion for demo
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    const imageUrl = e.target.result;
+    
+    try {
+      await axios.post(`${API_BASE}/profile/update-image`, {
+        userId: currentUser.id,
+        imageUrl
+      });
+      
+      currentUser.profile_image = imageUrl;
+      localStorage.setItem('currentUser', JSON.stringify(currentUser));
+      showSuccess('Profil şəkli yeniləndi');
+      showProfile();
+    } catch (error) {
+      showError('Şəkil yüklənmədi');
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function updateProfile(e) {
+  e.preventDefault();
+  
+  const full_name = document.getElementById('profileFullName').value;
+  const faculty = document.getElementById('profileFaculty').value;
+  const course = parseInt(document.getElementById('profileCourse').value);
+  
+  try {
+    await axios.post(`${API_BASE}/profile/update`, {
+      userId: currentUser.id,
+      full_name,
+      faculty,
+      course
+    });
+    
+    currentUser.full_name = full_name;
+    currentUser.faculty = faculty;
+    currentUser.course = course;
+    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+    
+    showSuccess('Profil yeniləndi');
+    showProfile();
+  } catch (error) {
+    showError('Profil yenilənmədi');
+  }
+}
+
+async function unblockUser(userId, userName) {
+  if (confirm(`${userName} istifadəçisinin əngəlini açmaq istədiyinizdən əminsiniz?`)) {
+    try {
+      await axios.post(`${API_BASE}/unblock`, {
+        blockerId: currentUser.id,
+        blockedId: userId
+      });
+      
+      showSuccess('Əngəl açıldı');
+      showProfile();
+    } catch (error) {
+      showError('Xəta baş verdi');
+    }
+  }
+}
+
+// ============= ŞƏXSİ MESAJLAR =============
+async function showPrivateMessages() {
+  try {
+    const response = await axios.get(`${API_BASE}/private/${currentUser.id}/conversations`);
+    
+    document.getElementById('app').innerHTML = `
+      <div class="dashboard">
+        <div class="dashboard-header">
+          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+              <button class="back-btn" onclick="showDashboard()">
+                <i class="fas fa-arrow-left"></i>
+              </button>
+              <h1><i class="fas fa-comments"></i> Şəxsi Mesajlar</h1>
+            </div>
+          </div>
+        </div>
+        
+        <div style="padding: 30px; max-width: 800px; margin: 0 auto;">
+          ${response.data.conversations.length === 0 ? 
+            '<div style="text-align: center; padding: 40px; color: #718096;"><i class="fas fa-inbox" style="font-size: 60px; margin-bottom: 20px; display: block;"></i><p>Hələ heç bir söhbətiniz yoxdur</p></div>' :
+            `<div class="users-list">
+              ${response.data.conversations.map(conv => {
+                const initials = getInitials(conv.full_name);
+                const time = new Date(conv.last_message_time).toLocaleString('az');
+                return `
+                  <div class="user-item" onclick="openPrivateChat(${conv.other_user_id}, '${conv.full_name}', '${conv.profile_image || ''}')" style="cursor: pointer;">
+                    <div class="user-avatar">
+                      ${conv.profile_image ? 
+                        `<img src="${conv.profile_image}" alt="${conv.full_name}">` : 
+                        initials
+                      }
+                    </div>
+                    <div style="flex: 1;">
+                      <div style="font-weight: 600;">${conv.full_name}</div>
+                      <div style="font-size: 12px; color: #718096;">${conv.faculty}</div>
+                      <div style="font-size: 11px; color: #a0aec0; margin-top: 4px;">${time}</div>
+                    </div>
+                    <i class="fas fa-chevron-right" style="color: #cbd5e0;"></i>
+                  </div>
+                `;
+              }).join('')}
+            </div>`
+          }
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    showError('Mesajlar yüklənmədi');
+  }
+}
+
+// ============= QAYDALAR =============
+async function showRules() {
+  try {
+    const response = await axios.get(`${API_BASE}/rules`);
+    
+    document.getElementById('app').innerHTML = `
+      <div class="dashboard">
+        <div class="dashboard-header">
+          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+              <button class="back-btn" onclick="showDashboard()">
+                <i class="fas fa-arrow-left"></i>
+              </button>
+              <h1><i class="fas fa-gavel"></i> Sayt Qaydaları</h1>
+            </div>
+          </div>
+        </div>
+        
+        <div style="padding: 30px; max-width: 800px; margin: 0 auto;">
+          <div style="background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);">
+            ${response.data.rules ? 
+              `<div style="white-space: pre-wrap; line-height: 1.8; color: #2d3748;">${response.data.rules}</div>` :
+              '<p style="color: #718096;">Qaydalar hələ əlavə edilməyib</p>'
+            }
+          </div>
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    showError('Qaydalar yüklənmədi');
+  }
+}
+
+// ============= ADMIN - BÜTÜN İSTİFADƏÇİLƏR =============
+async function showAllUsers() {
+  try {
+    const response = await axios.get(`${API_BASE}/admin/all-users`);
+    
+    document.getElementById('adminWorkArea').innerHTML = `
+      <div style="background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);">
+        <h2 style="margin-bottom: 20px; color: #2d3748;">
+          <i class="fas fa-users"></i> Bütün İstifadəçilər
+        </h2>
+        
+        ${response.data.users.length === 0 ? 
+          '<p style="color: #718096;">İstifadəçi yoxdur</p>' :
+          `<div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse;">
+              <thead>
+                <tr style="background: #f7fafc; border-bottom: 2px solid #e2e8f0;">
+                  <th style="padding: 12px; text-align: left;">Ad Soyad</th>
+                  <th style="padding: 12px; text-align: left;">Email</th>
+                  <th style="padding: 12px; text-align: left;">Telefon</th>
+                  <th style="padding: 12px; text-align: left;">Fakültə</th>
+                  <th style="padding: 12px; text-align: center;">Kurs</th>
+                  <th style="padding: 12px; text-align: center;">Status</th>
+                  <th style="padding: 12px; text-align: center;">Əməliyyat</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${response.data.users.map(user => `
+                  <tr style="border-bottom: 1px solid #e2e8f0;">
+                    <td style="padding: 12px;">${user.full_name}</td>
+                    <td style="padding: 12px;">${user.email}</td>
+                    <td style="padding: 12px;">${user.phone}</td>
+                    <td style="padding: 12px;">${user.faculty}</td>
+                    <td style="padding: 12px; text-align: center;">${user.course}</td>
+                    <td style="padding: 12px; text-align: center;">
+                      <span style="padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; ${user.is_banned ? 'background: #fee; color: #c33;' : 'background: #efe; color: #3c3;'}">
+                        ${user.is_banned ? 'Deaktiv' : 'Aktiv'}
+                      </span>
+                    </td>
+                    <td style="padding: 12px; text-align: center;">
+                      <button onclick="toggleUserStatus(${user.id}, ${user.is_banned ? 0 : 1}, '${user.full_name}')" 
+                              style="background: ${user.is_banned ? '#48bb78' : '#fc466b'}; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer;">
+                        <i class="fas fa-${user.is_banned ? 'check' : 'ban'}"></i> ${user.is_banned ? 'Aktiv Et' : 'Deaktiv Et'}
+                      </button>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>`
+        }
+      </div>
+    `;
+  } catch (error) {
+    showError('Məlumatlar yüklənmədi');
+  }
+}
+
+async function toggleUserStatus(userId, newStatus, userName) {
+  const action = newStatus ? 'deaktiv' : 'aktiv';
+  if (confirm(`${userName} istifadəçisini ${action} etmək istədiyinizdən əminsiniz?`)) {
+    try {
+      await axios.post(`${API_BASE}/admin/toggle-user-status`, {
+        userId,
+        status: newStatus
+      });
+      showSuccess(`İstifadəçi ${action} edildi`);
+      showAllUsers();
+    } catch (error) {
+      showError('Xəta baş verdi');
+    }
+  }
+}
+
 // Make functions available globally
 window.showLoginPage = showLoginPage;
 window.showRegisterPage = showRegisterPage;
@@ -1150,6 +1617,21 @@ window.showRulesEditor = showRulesEditor;
 window.saveRules = saveRules;
 window.showTopicEditor = showTopicEditor;
 window.saveTopic = saveTopic;
+window.showSubAdmins = showSubAdmins;
+window.createSubAdmin = createSubAdmin;
+window.deleteSubAdmin = deleteSubAdmin;
+window.showProfile = showProfile;
+window.uploadProfileImage = uploadProfileImage;
+window.updateProfile = updateProfile;
+window.unblockUser = unblockUser;
+window.showPrivateMessages = showPrivateMessages;
+window.showRules = showRules;
+window.showAllUsers = showAllUsers;
+window.toggleUserStatus = toggleUserStatus;
+window.openPrivateChatFromMenu = openPrivateChatFromMenu;
+window.blockAndReportUser = blockAndReportUser;
+window.reportUserOnly = reportUserOnly;
+window.showMessageContextMenu = showMessageContextMenu;
 window.showSubAdmins = showSubAdmins;
 window.createSubAdmin = createSubAdmin;
 window.deleteSubAdmin = deleteSubAdmin;
