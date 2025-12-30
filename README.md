@@ -48,7 +48,8 @@ BSU Chat - Bakı Dövlət Universiteti tələbələri üçün real-time mesajla�
 
 - **Development Server**: https://3000-i25zwni1i8uy0qosxq8se-a402f90a.sandbox.novita.ai
 - **Admin Paneli**: https://3000-i25zwni1i8uy0qosxq8se-a402f90a.sandbox.novita.ai/#admin
-- **GitHub**: (GitHub deployment gözlənilir)
+- **GitHub**: https://github.com/ilhamaliyevaz/bsu_chat_1__
+- **Project Backup**: https://www.genspark.ai/api/files/s/y54hvks6
 
 ## 📊 Məlumat Strukturu
 
